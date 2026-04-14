@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trigo Mobile Legend</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { overflow: hidden; width: 100vw; height: 100vh; font-family: 'Segoe UI', sans-serif; }
+  #root { width: 100vw; height: 100vh; }
+  @keyframes zoomIn { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes ropeSwing { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(1.02); } }
+  @keyframes charBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  @keyframes shakeLeft { 0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)} }
+  @keyframes glow { 0%,100%{box-shadow:0 0 10px #22c55e}50%{box-shadow:0 0 25px #22c55e,0 0 40px #22c55e} }
+  @keyframes glowRed { 0%,100%{box-shadow:0 0 10px #ef4444}50%{box-shadow:0 0 25px #ef4444,0 0 40px #ef4444} }
+  @keyframes confetti { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(120px) rotate(720deg);opacity:0} }
+  @keyframes winnerPulse { 0%,100%{transform:scale(1)}50%{transform:scale(1.05)} }
+  @keyframes fadeFlash { 0%{opacity:1}50%{opacity:0.3}100%{opacity:1} }
+  .zoom-in { animation: zoomIn 1s ease-out forwards; }
+  .char-bounce { animation: charBounce 0.6s ease-in-out; }
+  .shake-anim { animation: shakeLeft 0.5s ease; }
+  .glow-green { animation: glow 1.5s infinite; }
+  .glow-red { animation: glowRed 1.5s infinite; }
+  .winner-pulse { animation: winnerPulse 0.8s infinite; }
+  .fade-flash { animation: fadeFlash 0.5s ease; }
+  .btn-answer {
+    transition: all 0.15s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .btn-answer:hover:not(:disabled) { transform: scale(1.03); filter: brightness(1.1); }
+  .btn-answer:active:not(:disabled) { transform: scale(0.97); }
+  .rope-knot {
+    transition: left 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .char-left { transition: left 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .char-right { transition: right 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const GOOGLE_SHEET_URL = "";
+
+const questionBank = {
+  "Sudut Istimewa": {
+    icon: "📐",
+    color: "from-emerald-600 to-teal-700",
+    questions: [
+      { question: "Nilai sin 30° adalah...", options: ["1/2", "√2/2", "√3/2", "1"], correct: "1/2" },
+      { question: "Nilai cos 60° adalah...", options: ["1/2", "√3/2", "√2/2", "0"], correct: "1/2" },
+      { question: "Nilai tan 45° adalah...", options: ["√3", "1/2", "1", "√2"], correct: "1" },
+      { question: "Nilai sin 90° adalah...", options: ["0", "1/2", "√3/2", "1"], correct: "1" },
+      { question: "Nilai cos 0° adalah...", options: ["0", "1", "1/2", "√2/2"], correct: "1" },
+      { question: "Nilai tan 60° adalah...", options: ["1", "√2", "√3", "2"], correct: "√3" },
+      { question: "Nilai sin 45° adalah...", options: ["1/2", "√3/2", "√2/2", "1"], correct: "√2/2" },
+      { question: "Nilai cos 30° adalah...", options: ["1/2", "√2/2", "√3/2", "1"], correct: "√3/2" },
+      { question: "Nilai tan 30° adalah...", options: ["√3", "1/√3", "1", "√2"], correct: "1/√3" },
+      { question: "Nilai cos 90° adalah...", options: ["1", "1/2", "0", "−1"], correct: "0" },
+      { question: "Nilai sin 0° adalah...", options: ["1", "0", "1/2", "√2/2"], correct: "0" },
+      { question: "Nilai sin 60° adalah...", options: ["1/2", "√2/2", "√3/2", "1"], correct: "√3/2" },
+      { question: "Nilai tan 0° adalah...", options: ["0", "1", "tak terdefinisi", "√3"], correct: "0" },
+      { question: "Nilai cos 45° adalah...", options: ["1/2", "√3/2", "√2/2", "1"], correct: "√2/2" },
+      { question: "Nilai tan 90° adalah...", options: ["0", "1", "√3", "Tak Terdefinisi"], correct: "Tak Terdefinisi" },
+      { question: "Nilai 2 sin 30° adalah...", options: ["1/2", "√3", "1", "2"], correct: "1" },
+      { question: "Nilai sin²30° + cos²30° adalah...", options: ["0", "1/2", "√3/2", "1"], correct: "1" },
+      { question: "Nilai sin 30° × cos 60° adalah...", options: ["1/4", "1/2", "√3/4", "1"], correct: "1/4" },
+      { question: "Nilai tan 45° + sin 90° adalah...", options: ["1", "√2", "2", "√3+1"], correct: "2" },
+      { question: "Nilai cos²45° adalah...", options: ["1/4", "1/2", "√2/4", "1"], correct: "1/2" }
+    ]
+  },
+  "Sudut Relasi Kuadran I & II": {
+    icon: "🔁",
+    color: "from-blue-600 to-indigo-700",
+    questions: [
+      { question: "Nilai sin(180° − 30°) sama dengan...", options: ["−sin 30°", "cos 30°", "sin 30°", "−cos 30°"], correct: "sin 30°" },
+      { question: "Nilai cos(180° − 45°) sama dengan...", options: ["cos 45°", "−cos 45°", "sin 45°", "−sin 45°"], correct: "−cos 45°" },
+      { question: "sin(180° − α) = ...", options: ["sin α", "−sin α", "cos α", "−cos α"], correct: "sin α" },
+      { question: "cos(180° − α) = ...", options: ["cos α", "sin α", "−sin α", "−cos α"], correct: "−cos α" },
+      { question: "tan(180° − α) = ...", options: ["tan α", "−tan α", "cot α", "−cot α"], correct: "−tan α" },
+      { question: "Nilai sin 150° adalah...", options: ["−1/2", "√3/2", "1/2", "−√3/2"], correct: "1/2" },
+      { question: "Nilai cos 120° adalah...", options: ["1/2", "√3/2", "−1/2", "−√3/2"], correct: "−1/2" },
+      { question: "Nilai tan 135° adalah...", options: ["1", "−1", "√3", "−√3"], correct: "−1" },
+      { question: "Nilai sin 120° adalah...", options: ["1/2", "−1/2", "√3/2", "−√3/2"], correct: "√3/2" },
+      { question: "Nilai cos 150° adalah...", options: ["√3/2", "−√3/2", "1/2", "−1/2"], correct: "−√3/2" },
+      { question: "sin(90° + α) = ...", options: ["sin α", "−sin α", "cos α", "−cos α"], correct: "cos α" },
+      { question: "cos(90° + α) = ...", options: ["cos α", "sin α", "−cos α", "−sin α"], correct: "−sin α" },
+      { question: "tan(90° + α) = ...", options: ["tan α", "−tan α", "cot α", "−cot α"], correct: "−cot α" },
+      { question: "Nilai sin(90° + 30°) adalah...", options: ["sin 30°", "−sin 30°", "cos 30°", "−cos 30°"], correct: "cos 30°" },
+      { question: "Nilai cos(90° + 60°) adalah...", options: ["cos 60°", "sin 60°", "−sin 60°", "−cos 60°"], correct: "−sin 60°" },
+      { question: "sin(180° − 60°) = ...", options: ["−√3/2", "√3/2", "1/2", "−1/2"], correct: "√3/2" },
+      { question: "cos(180° − 30°) = ...", options: ["√3/2", "−√3/2", "1/2", "−1/2"], correct: "−√3/2" },
+      { question: "tan(180° − 45°) = ...", options: ["1", "−1", "√3", "−√3"], correct: "−1" },
+      { question: "Nilai cos(90° + 45°) adalah...", options: ["√2/2", "−√2/2", "1/2", "−1/2"], correct: "−√2/2" },
+      { question: "Nilai tan(90° + 30°) adalah...", options: ["√3", "−√3", "1/√3", "−1/√3"], correct: "−1/√3" }
+    ]
+  },
+  "Sudut Relasi Kuadran III & IV": {
+    icon: "🔄",
+    color: "from-purple-600 to-violet-700",
+    questions: [
+      { question: "sin(180° + α) = ...", options: ["sin α", "−sin α", "cos α", "−cos α"], correct: "−sin α" },
+      { question: "cos(180° + α) = ...", options: ["cos α", "−cos α", "sin α", "−sin α"], correct: "−cos α" },
+      { question: "tan(180° + α) = ...", options: ["tan α", "−tan α", "cot α", "−cot α"], correct: "tan α" },
+      { question: "sin(360° − α) = ...", options: ["sin α", "−sin α", "cos α", "−cos α"], correct: "−sin α" },
+      { question: "cos(360° − α) = ...", options: ["cos α", "−cos α", "sin α", "−sin α"], correct: "cos α" },
+      { question: "tan(360° − α) = ...", options: ["tan α", "−tan α", "cot α", "−cot α"], correct: "−tan α" },
+      { question: "Nilai sin 210° adalah...", options: ["1/2", "−1/2", "√3/2", "−√3/2"], correct: "−1/2" },
+      { question: "Nilai cos 240° adalah...", options: ["1/2", "−1/2", "√3/2", "−√3/2"], correct: "−1/2" },
+      { question: "Nilai tan 225° adalah...", options: ["1", "−1", "√3", "−√3"], correct: "1" },
+      { question: "Nilai sin 270° adalah...", options: ["0", "1", "−1", "√3/2"], correct: "−1" },
+      { question: "Nilai cos 270° adalah...", options: ["1", "0", "−1", "1/2"], correct: "0" },
+      { question: "Nilai sin 240° adalah...", options: ["√3/2", "−√3/2", "1/2", "−1/2"], correct: "−√3/2" },
+      { question: "Nilai cos 300° adalah...", options: ["1/2", "−1/2", "√3/2", "−√3/2"], correct: "1/2" },
+      { question: "Nilai sin 300° adalah...", options: ["√3/2", "−√3/2", "1/2", "−1/2"], correct: "−√3/2" },
+      { question: "Nilai tan 300° adalah...", options: ["√3", "−√3", "1/√3", "−1/√3"], correct: "−√3" },
+      { question: "Nilai tan 270° adalah...", options: ["0", "1", "Tak Terdefinisi", "−1"], correct: "Tak Terdefinisi" },
+      { question: "Nilai cos 210° adalah...", options: ["√3/2", "−√3/2", "1/2", "−1/2"], correct: "−√3/2" },
+      { question: "Nilai tan 240° adalah...", options: ["√3", "−√3", "1/√3", "−1/√3"], correct: "√3" },
+      { question: "sin(270° + α) = ...", options: ["sin α", "−sin α", "cos α", "−cos α"], correct: "−cos α" },
+      { question: "cos(270° + α) = ...", options: ["cos α", "−cos α", "sin α", "−sin α"], correct: "sin α" }
+    ]
+  },
+  "Identitas & Komposisi Sudut": {
+    icon: "🧮",
+    color: "from-orange-600 to-red-700",
+    questions: [
+      { question: "sin²α + cos²α = ...", options: ["0", "2", "1", "−1"], correct: "1" },
+      { question: "1 + tan²α = ...", options: ["sec²α", "csc²α", "cos²α", "sin²α"], correct: "sec²α" },
+      { question: "1 + cot²α = ...", options: ["sec²α", "csc²α", "tan²α", "sin²α"], correct: "csc²α" },
+      { question: "sin(A + B) = ...", options: ["sin A cos B + cos A sin B", "sin A cos B − cos A sin B", "cos A cos B − sin A sin B", "cos A cos B + sin A sin B"], correct: "sin A cos B + cos A sin B" },
+      { question: "cos(A + B) = ...", options: ["cos A cos B + sin A sin B", "cos A cos B − sin A sin B", "sin A cos B + cos A sin B", "sin A cos B − cos A sin B"], correct: "cos A cos B − sin A sin B" },
+      { question: "sin(A − B) = ...", options: ["sin A cos B + cos A sin B", "sin A cos B − cos A sin B", "cos A cos B + sin A sin B", "cos A cos B − sin A sin B"], correct: "sin A cos B − cos A sin B" },
+      { question: "tan(A + B) = ...", options: ["(tan A + tan B)/(1 − tan A tan B)", "(tan A − tan B)/(1 + tan A tan B)", "(tan A + tan B)/(1 + tan A tan B)", "(tan A − tan B)/(1 − tan A tan B)"], correct: "(tan A + tan B)/(1 − tan A tan B)" },
+      { question: "sin 2α = ...", options: ["2 sin α", "2 cos α", "2 sin α cos α", "sin²α − cos²α"], correct: "2 sin α cos α" },
+      { question: "cos 2α = ...", options: ["2 cos²α", "1 − 2 cos²α", "cos²α − sin²α", "2 sin α cos α"], correct: "cos²α − sin²α" },
+      { question: "cos 2α juga dapat ditulis sebagai...", options: ["1 − 2 sin²α", "2 sin²α − 1", "sin²α − cos²α", "2 cos α sin α"], correct: "1 − 2 sin²α" },
+      { question: "Nilai sin 75° = sin(45° + 30°) adalah...", options: ["(√6+√2)/4", "(√6−√2)/4", "(√2+√3)/4", "(√3−√2)/4"], correct: "(√6+√2)/4" },
+      { question: "Nilai cos 75° = cos(45° + 30°) adalah...", options: ["(√6+√2)/4", "(√6−√2)/4", "(√2−√3)/4", "(√3+√2)/4"], correct: "(√6−√2)/4" },
+      { question: "tan 2α = ...", options: ["2 tan α", "tan²α", "2 tan α / (1 − tan²α)", "tan α / (1 − tan²α)"], correct: "2 tan α / (1 − tan²α)" },
+      { question: "sin 15° = sin(45° − 30°) adalah...", options: ["(√6+√2)/4", "(√6−√2)/4", "(√2−1)/4", "(√3−√2)/4"], correct: "(√6−√2)/4" },
+      { question: "cos²α − sin²α = ...", options: ["sin 2α", "cos 2α", "tan 2α", "cot 2α"], correct: "cos 2α" },
+      { question: "2 sin α cos α = ...", options: ["cos 2α", "tan 2α", "sin 2α", "cot 2α"], correct: "sin 2α" },
+      { question: "Nilai sin 105° = sin(60° + 45°) adalah...", options: ["(√6+√2)/4", "(√6−√2)/4", "(√3+1)/4", "(√2+1)/4"], correct: "(√6+√2)/4" },
+      { question: "Rumus cos(A − B) = ...", options: ["cos A cos B − sin A sin B", "cos A cos B + sin A sin B", "sin A cos B − cos A sin B", "sin A cos B + cos A sin B"], correct: "cos A cos B + sin A sin B" },
+      { question: "Nilai tan 75° = tan(45° + 30°) adalah...", options: ["2 + √3", "2 − √3", "√3 + 1", "√3 − 1"], correct: "2 + √3" },
+      { question: "Jika sin α = 3/5, maka sin 2α = ...", options: ["24/25", "7/25", "6/5", "12/25"], correct: "24/25" }
+    ]
+  }
+};
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function useBGM() {
+  const bgmRef = useRef(null);
+  const fanfareRef = useRef(null);
+
+  useEffect(() => {
+    bgmRef.current = new Audio("https://github.com/ilindekguru/Lagulagu/raw/refs/heads/main/Kids%20Toddler%20Background%20Music%20Song%20For%20Videos%20-%20Background%20Music%20for%20Videos.mp3");
+    bgmRef.current.loop = true;
+    bgmRef.current.volume = 0.5;
+    fanfareRef.current = new Audio("https://github.com/ilindekguru/Lagulagu/raw/refs/heads/main/brass-fanfare-with-timpani-and-winchimes-reverberated-146260.mp3");
+    fanfareRef.current.volume = 0.8;
+    return () => {
+      bgmRef.current?.pause();
+      fanfareRef.current?.pause();
+    };
+  }, []);
+
+  const playBGM = useCallback(() => {
+    if (bgmRef.current) {
+      bgmRef.current.currentTime = 0;
+      bgmRef.current.play().catch(() => {});
+    }
+  }, []);
+
+  const pauseBGM = useCallback(() => {
+    bgmRef.current?.pause();
+  }, []);
+
+  const resumeBGM = useCallback(() => {
+    bgmRef.current?.play().catch(() => {});
+  }, []);
+
+  const playFanfare = useCallback(() => {
+    if (fanfareRef.current) {
+      fanfareRef.current.currentTime = 0;
+      fanfareRef.current.play().catch(() => {});
+    }
+  }, []);
+
+  return { playBGM, pauseBGM, resumeBGM, playFanfare };
+}
+
+function SplashScreen({ onDone }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 6000);
+    return () => clearTimeout(t);
+  }, [onDone]);
+
+  return (
+    <div style={{ width:'100vw', height:'100vh', background:'#ffffff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div className="zoom-in" style={{ textAlign:'center' }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color: '#1a1a2e', lineHeight: 1.7, fontFamily: 'Georgia, serif' }}>
+          <div style={{ fontSize: 18, color: '#666', marginBottom: 8 }}>Game Edukasi Trigonometri</div>
+          <div style={{ fontSize: 36, fontWeight: 900, background: 'linear-gradient(135deg,#22c55e,#3b82f6)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', marginBottom: 12 }}>
+            Trigo Mobile Legend
+          </div>
+          <div style={{ fontSize: 16, color: '#444', fontStyle: 'italic' }}>Created by</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#1e40af', marginTop: 4 }}>Novia Ayu Lestari</div>
+          <div style={{ fontSize: 15, color: '#555', marginTop: 6 }}>Duta Teknologi Provinsi Bengkulu</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TitleScreen({ onEnter }) {
+  return (
+    <div style={{
+      width:'100vw', height:'100vh', position:'relative', overflow:'hidden',
+      backgroundImage: 'url(https://i.imgur.com/KVAWwr3.png)',
+      backgroundSize:'cover', backgroundPosition:'center'
+    }}>
+      <div style={{
+        position:'absolute', inset:0,
+        background:'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.5) 100%)'
+      }}/>
+      <div style={{ position:'absolute', bottom: 60, left:0, right:0, display:'flex', justifyContent:'center' }}>
+        <button
+          onClick={onEnter}
+          style={{
+            padding: '18px 70px', fontSize: 22, fontWeight: 900,
+            background: 'linear-gradient(135deg, #16a34a, #22c55e)',
+            color: '#fff', border: 'none', borderRadius: 50,
+            cursor: 'pointer', letterSpacing: 4, textTransform: 'uppercase',
+            boxShadow: '0 6px 30px rgba(34,197,94,0.6)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => e.target.style.transform='scale(1.07)'}
+          onMouseLeave={e => e.target.style.transform='scale(1)'}
+        >
+          ▶ MASUK
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MainMenu({ onSelect }) {
+  const categories = Object.keys(questionBank);
+  return (
+    <div style={{
+      width:'100vw', height:'100vh', overflow:'auto',
+      backgroundImage: 'url(https://i.imgur.com/KVAWwr3.png)',
+      backgroundSize:'cover', backgroundPosition:'center'
+    }}>
+      <div style={{ position:'fixed', inset:0, background:'rgba(10,15,30,0.82)', zIndex:0 }}/>
+      <div style={{ position:'relative', zIndex:1, padding: '30px 20px', minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center' }}>
+        <div style={{ textAlign:'center', marginBottom: 30 }}>
+          <div style={{ fontSize:13, letterSpacing:6, color:'#94a3b8', textTransform:'uppercase', marginBottom:8 }}>Game Edukasi Trigonometri</div>
+          <h1 style={{ fontSize: 36, fontWeight: 900, color:'#fff', textShadow:'0 0 30px rgba(34,197,94,0.5)' }}>🎮 PILIH TOPIK</h1>
+          <div style={{ height:3, width:120, background:'linear-gradient(90deg,#22c55e,#3b82f6)', borderRadius:10, margin:'12px auto 0' }}/>
+        </div>
+        <div style={{
+          display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: 20, width:'100%', maxWidth:900
+        }}>
+          {categories.map(cat => {
+            const info = questionBank[cat];
+            return (
+              <button
+                key={cat}
+                onClick={() => onSelect(cat)}
+                style={{
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 20, padding: '28px 24px', cursor:'pointer',
+                  transition:'all 0.25s ease', textAlign:'left',
+                  backdropFilter:'blur(10px)'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform='translateY(-6px)';
+                  e.currentTarget.style.background='rgba(255,255,255,0.14)';
+                  e.currentTarget.style.boxShadow='0 20px 40px rgba(0,0,0,0.4)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform='translateY(0)';
+                  e.currentTarget.style.background='rgba(255,255,255,0.07)';
+                  e.currentTarget.style.boxShadow='none';
+                }}
+              >
+                <div style={{ fontSize:48, marginBottom:12 }}>{info.icon}</div>
+                <div style={{ fontSize:18, fontWeight:800, color:'#fff', marginBottom:6 }}>{cat}</div>
+                <div style={{ fontSize:13, color:'#94a3b8' }}>{info.questions.length} Soal Tersedia</div>
+                <div style={{
+                  marginTop:16, display:'inline-block', padding:'6px 16px',
+                  background:'rgba(34,197,94,0.2)', borderRadius:20,
+                  fontSize:12, fontWeight:700, color:'#4ade80', border:'1px solid rgba(34,197,94,0.3)'
+                }}>
+                  Mulai Bermain →
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GameArena({ category, onBack, playFanfare, pauseBGM, resumeBGM }) {
+  const info = questionBank[category];
+  const allQuestions = useRef(shuffle(info.questions));
+  const [qIndex, setQIndex] = useState(0);
+  const [ropePos, setRopePos] = useState(50);
+  const [shuffledOpts, setShuffledOpts] = useState({ A: [], B: [] });
+  const [feedback, setFeedback] = useState({ A: null, B: null });
+  const [freeze, setFreeze] = useState({ A: false, B: false });
+  const [freezeTimer, setFreezeTimer] = useState({ A: 0, B: 0 });
+  const [winner, setWinner] = useState(null);
+  const [bouncing, setBouncing] = useState({ A: false, B: false });
+  const [shaking, setShaking] = useState({ A: false, B: false });
+  const [scoreA, setScoreA] = useState(0);
+  const [scoreB, setScoreB] = useState(0);
+  const freezeIntervalRef = useRef({});
+  const gameStarted = useRef(false);
+
+  const currentQ = allQuestions.current[qIndex % allQuestions.current.length];
+
+  useEffect(() => {
+    pauseBGM();
+    return () => {};
+  }, [pauseBGM]);
+
+  useEffect(() => {
+    if (currentQ) {
+      setShuffledOpts({
+        A: shuffle(currentQ.options),
+        B: shuffle(currentQ.options)
+      });
+      setFeedback({ A: null, B: null });
+    }
+  }, [qIndex, category]);
+
+  const nextQuestion = useCallback(() => {
+    setTimeout(() => {
+      setQIndex(p => p + 1);
+      setFeedback({ A: null, B: null });
+    }, 800);
+  }, []);
+
+  const handleAnswer = useCallback((team, answer) => {
+    if (freeze[team] || feedback[team] || winner) return;
+    const isCorrect = answer === currentQ.correct;
+    setFeedback(prev => ({ ...prev, [team]: isCorrect ? 'correct' : 'wrong' }));
+
+    if (isCorrect) {
+      setBouncing(prev => ({ ...prev, [team]: true }));
+      setTimeout(() => setBouncing(prev => ({ ...prev, [team]: false })), 600);
+
+      const newPos = team === 'A'
+        ? Math.max(0, ropePos - 5)
+        : Math.min(100, ropePos + 5);
+      setRopePos(newPos);
+      if (team === 'A') setScoreA(p => p + 1);
+      else setScoreB(p => p + 1);
+
+      if (newPos <= 15) {
+        setTimeout(() => { setWinner('A'); playFanfare(); }, 400);
+      } else if (newPos >= 85) {
+        setTimeout(() => { setWinner('B'); playFanfare(); }, 400);
+      } else {
+        nextQuestion();
+      }
+    } else {
+      setShaking(prev => ({ ...prev, [team]: true }));
+      setTimeout(() => setShaking(prev => ({ ...prev, [team]: false })), 500);
+      setFreeze(prev => ({ ...prev, [team]: true }));
+      let t = 5;
+      setFreezeTimer(prev => ({ ...prev, [team]: t }));
+      const interval = setInterval(() => {
+        t--;
+        setFreezeTimer(prev => ({ ...prev, [team]: t }));
+        if (t <= 0) {
+          clearInterval(interval);
+          setFreeze(prev => ({ ...prev, [team]: false }));
+          setFeedback(prev => ({ ...prev, [team]: null }));
+          setFreezeTimer(prev => ({ ...prev, [team]: 0 }));
+        }
+      }, 1000);
+      freezeIntervalRef.current[team] = interval;
+    }
+  }, [freeze, feedback, winner, currentQ, ropePos, nextQuestion, playFanfare]);
+
+  const handleBack = () => {
+    Object.values(freezeIntervalRef.current).forEach(clearInterval);
+    resumeBGM();
+    onBack();
+  };
+
+  const charLeftPct = Math.max(2, ropePos - 18);
+  const charRightPct = Math.max(2, 100 - ropePos - 18);
+
+  if (winner) {
+    const winTeam = winner === 'A' ? 'Tim A (Hijau)' : 'Tim B (Merah)';
+    const winColor = winner === 'A' ? '#22c55e' : '#ef4444';
+    const winImg = winner === 'A'
+      ? 'https://i.imgur.com/osPURuq.png'
+      : 'https://i.imgur.com/0w50ZIa.png';
+    return (
+      <div style={{
+        width:'100vw', height:'100vh', display:'flex', flexDirection:'column',
+        alignItems:'center', justifyContent:'center',
+        background:'linear-gradient(135deg,#0f172a,#1e1b4b)',
+        position:'relative', overflow:'hidden'
+      }}>
+        {[...Array(12)].map((_, i) => (
+          <div key={i} style={{
+            position:'absolute',
+            left: `${Math.random()*100}%`,
+            top: -20,
+            width: 10, height: 20,
+            background: ['#f59e0b','#22c55e','#3b82f6','#ec4899','#f97316'][i%5],
+            borderRadius: 2,
+            animation: `confetti ${1.5 + Math.random()}s ${Math.random()}s ease-out infinite`,
+            transform: `rotate(${Math.random()*360}deg)`
+          }}/>
+        ))}
+        <div className="winner-pulse" style={{
+          background:'rgba(255,255,255,0.07)',
+          borderRadius:30, padding:'50px 60px', textAlign:'center',
+          border: `3px solid ${winColor}`,
+          boxShadow: `0 0 50px ${winColor}44`
+        }}>
+          <img src={winImg} alt="Winner" style={{ height:140, marginBottom:20, filter:'drop-shadow(0 0 20px rgba(255,255,255,0.4))' }}/>
+          <div style={{ fontSize:50, marginBottom:10 }}>🏆</div>
+          <div style={{ fontSize:18, color:'#94a3b8', marginBottom:6 }}>Pemenang</div>
+          <div style={{ fontSize:36, fontWeight:900, color:winColor, marginBottom:20 }}>{winTeam}</div>
+          <div style={{ display:'flex', gap:16, justifyContent:'center', marginBottom:30 }}>
+            <div style={{ background:'rgba(34,197,94,0.2)', borderRadius:12, padding:'10px 20px' }}>
+              <div style={{ fontSize:11, color:'#94a3b8' }}>Skor Tim A</div>
+              <div style={{ fontSize:24, fontWeight:900, color:'#22c55e' }}>{scoreA}</div>
+            </div>
+            <div style={{ background:'rgba(239,68,68,0.2)', borderRadius:12, padding:'10px 20px' }}>
+              <div style={{ fontSize:11, color:'#94a3b8' }}>Skor Tim B</div>
+              <div style={{ fontSize:24, fontWeight:900, color:'#ef4444' }}>{scoreB}</div>
+            </div>
+          </div>
+          <button
+            onClick={handleBack}
+            style={{
+              padding:'14px 40px', fontSize:16, fontWeight:800,
+              background:'linear-gradient(135deg,#22c55e,#16a34a)',
+              color:'#fff', border:'none', borderRadius:50, cursor:'pointer',
+              letterSpacing:2, boxShadow:'0 4px 20px rgba(34,197,94,0.5)'
+            }}
+          >
+            🏠 KEMBALI KE MENU
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const TeamPanel = ({ team, color, borderColor, glowClass }) => {
+    const opts = shuffledOpts[team] || [];
+    const isFreeze = freeze[team];
+    const fb = feedback[team];
+    const timer = freezeTimer[team];
+    const isBouncing = bouncing[team];
+    const isShaking = shaking[team];
+    const letters = ['A', 'B', 'C', 'D'];
+
+    return (
+      <div style={{
+        flex:1, padding:'8px 10px', display:'flex', flexDirection:'column', gap:6,
+        background: `linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.3))`,
+        borderTop: `3px solid ${borderColor}`
+      }}>
+        <div style={{ textAlign:'center', fontSize:12, fontWeight:800, color: borderColor, letterSpacing:2, marginBottom:2 }}>
+          {team === 'A' ? '🟢 TIM A' : '🔴 TIM B'}
+          {isFreeze && (
+            <span style={{ marginLeft:8, color:'#fbbf24', fontSize:11 }}>
+              ⏱ {timer}s
+            </span>
+          )}
+          {fb === 'correct' && <span style={{ marginLeft:8, color:'#4ade80', fontSize:11 }}>✓ BENAR!</span>}
+          {fb === 'wrong' && !isFreeze && <span style={{ marginLeft:8, color:'#f87171', fontSize:11 }}>✗ SALAH!</span>}
+          {isFreeze && <span style={{ marginLeft:4, color:'#fbbf24', fontSize:11 }}>KUNCI!</span>}
+        </div>
+        {opts.map((opt, i) => {
+          let bg = 'rgba(255,255,255,0.1)';
+          let bdr = 'rgba(255,255,255,0.2)';
+          let txtColor = '#fff';
+          if (fb === 'correct' && opt === currentQ.correct) { bg='rgba(34,197,94,0.35)'; bdr='#22c55e'; }
+          if (fb === 'wrong' && opt === currentQ.options.find(o => o !== currentQ.correct && shuffledOpts[team].indexOf(o) === i)) {
+            if (shuffledOpts[team][i] !== currentQ.correct) { bg='rgba(239,68,68,0.25)'; bdr='#ef4444'; }
+          }
+          if (isFreeze) { bg='rgba(100,100,100,0.2)'; txtColor='#666'; }
+
+          return (
+            <button
+              key={i}
+              className={`btn-answer ${isShaking ? 'shake-anim' : ''}`}
+              disabled={isFreeze || !!fb}
+              onClick={() => handleAnswer(team, opt)}
+              style={{
+                padding:'8px 10px', borderRadius:10, fontSize:12, fontWeight:700,
+                background:bg, border:`2px solid ${bdr}`, color:txtColor,
+                cursor: isFreeze || fb ? 'not-allowed' : 'pointer',
+                textAlign:'left', display:'flex', alignItems:'center', gap:8,
+                flex:1, minHeight:0
+              }}
+            >
+              <span style={{
+                width:22, height:22, borderRadius:'50%', background:'rgba(255,255,255,0.15)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:11, fontWeight:900, flexShrink:0, color: isFreeze ? '#555' : borderColor
+              }}>{letters[i]}</span>
+              <span style={{ lineHeight:1.3 }}>{opt}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const ropeKnotLeft = `calc(${ropePos}% - 12px)`;
+
+  return (
+    <div style={{ width:'100vw', height:'100vh', display:'flex', flexDirection:'column', background:'#0f172a', overflow:'hidden' }}>
+      {/* TOP: Question panels */}
+      <div style={{ height:'16%', display:'flex', minHeight:0 }}>
+        {/* Question A */}
+        <div style={{
+          flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+          padding:'6px 12px', background:'linear-gradient(135deg,rgba(22,163,74,0.25),rgba(15,23,42,0.9))',
+          borderBottom:'3px solid #22c55e', borderRight:'1px solid rgba(255,255,255,0.1)'
+        }}>
+          <div style={{ fontSize:12, color:'#fff', textAlign:'center', lineHeight:1.4 }}>
+            <span style={{ fontSize:10, color:'#4ade80', display:'block', marginBottom:2 }}>🟢 TIM A — Soal #{qIndex+1}</span>
+            <strong>{currentQ?.question}</strong>
+          </div>
+        </div>
+        {/* Score center */}
+        <div style={{
+          width:80, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          background:'rgba(0,0,0,0.5)', borderBottom:'3px solid #6366f1'
+        }}>
+          <div style={{ fontSize:10, color:'#94a3b8', letterSpacing:1 }}>SKOR</div>
+          <div style={{ fontSize:18, fontWeight:900, color:'#fff' }}>{scoreA}<span style={{ color:'#6366f1' }}>:</span>{scoreB}</div>
+        </div>
+        {/* Question B */}
+        <div style={{
+          flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+          padding:'6px 12px', background:'linear-gradient(135deg,rgba(15,23,42,0.9),rgba(185,28,28,0.25))',
+          borderBottom:'3px solid #ef4444', borderLeft:'1px solid rgba(255,255,255,0.1)'
+        }}>
+          <div style={{ fontSize:12, color:'#fff', textAlign:'center', lineHeight:1.4 }}>
+            <span style={{ fontSize:10, color:'#f87171', display:'block', marginBottom:2 }}>🔴 TIM B — Soal #{qIndex+1}</span>
+            <strong>{currentQ?.question}</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* MIDDLE: Arena */}
+      <div style={{
+        height:'58%', position:'relative', overflow:'hidden',
+        backgroundImage:'url(https://i.imgur.com/KVAWwr3.png)',
+        backgroundSize:'cover', backgroundPosition:'center'
+      }}>
+        <div style={{ position:'absolute', inset:0, background:'rgba(5,10,25,0.45)' }}/>
+
+        {/* Category label */}
+        <div style={{
+          position:'absolute', top:8, left:'50%', transform:'translateX(-50%)',
+          background:'rgba(0,0,0,0.6)', borderRadius:20, padding:'4px 16px',
+          fontSize:11, color:'#a5b4fc', letterSpacing:2, zIndex:3,
+          border:'1px solid rgba(99,102,241,0.4)'
+        }}>
+          {info.icon} {category}
+        </div>
+
+        {/* Rope */}
+        <div style={{
+          position:'absolute', top:'50%', left:0, right:0,
+          transform:'translateY(-50%)', height:8, zIndex:2
+        }}>
+          {/* Rope line */}
+          <div style={{
+            position:'absolute', top:'50%', left:'10%', right:'10%', height:8,
+            background:'linear-gradient(90deg, #8B4513, #D2691E, #A0522D, #8B4513)',
+            borderRadius:4, transform:'translateY(-50%)',
+            boxShadow:'0 2px 8px rgba(0,0,0,0.5)',
+            backgroundSize:'20px 100%'
+          }}/>
+          {/* Rope strands */}
+          {[...Array(8)].map((_,i) => (
+            <div key={i} style={{
+              position:'absolute', top:'50%',
+              left:`calc(10% + ${i*10}%)`, width:'10%', height:3,
+              background:'rgba(139,69,19,0.5)', transform:'translateY(-50%)'
+            }}/>
+          ))}
+          {/* Center knot */}
+          <div
+            className="rope-knot"
+            style={{
+              position:'absolute', top:'50%',
+              left: ropeKnotLeft,
+              transform:'translateY(-50%)',
+              width:24, height:24, borderRadius:'50%',
+              background:'radial-gradient(circle at 40% 35%, #f5c842, #d4a01a)',
+              border:'3px solid #8B4513',
+              boxShadow:'0 0 12px rgba(245,200,66,0.7)',
+              zIndex:5
+            }}
+          />
+        </div>
+
+        {/* Character LEFT (Tim A) */}
+        <div
+          className={`char-left ${bouncing.A ? 'char-bounce' : ''}`}
+          style={{
+            position:'absolute', bottom:8, zIndex:3,
+            left: `${charLeftPct}%`,
+            transition:'left 0.4s cubic-bezier(0.34,1.56,0.64,1)'
+          }}
+        >
+          <img
+            src="https://i.imgur.com/osPURuq.png"
+            alt="Tim A"
+            style={{ height:110, filter:'drop-shadow(2px 4px 8px rgba(34,197,94,0.5))' }}
+          />
+          <div style={{
+            textAlign:'center', fontSize:10, fontWeight:800, color:'#4ade80',
+            textShadow:'0 0 8px rgba(34,197,94,0.8)', marginTop:2
+          }}>TIM A</div>
+        </div>
+
+        {/* Character RIGHT (Tim B) */}
+        <div
+          className={`char-right ${bouncing.B ? 'char-bounce' : ''}`}
+          style={{
+            position:'absolute', bottom:8, zIndex:3,
+            right: `${charRightPct}%`,
+            transition:'right 0.4s cubic-bezier(0.34,1.56,0.64,1)'
+          }}
+        >
+          <img
+            src="https://i.imgur.com/0w50ZIa.png"
+            alt="Tim B"
+            style={{ height:110, filter:'drop-shadow(2px 4px 8px rgba(239,68,68,0.5))' }}
+          />
+          <div style={{
+            textAlign:'center', fontSize:10, fontWeight:800, color:'#f87171',
+            textShadow:'0 0 8px rgba(239,68,68,0.8)', marginTop:2
+          }}>TIM B</div>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{
+          position:'absolute', bottom:0, left:0, right:0, height:6, background:'rgba(0,0,0,0.5)'
+        }}>
+          <div style={{ position:'absolute', top:0, left:0, width:'15%', height:'100%', background:'#22c55e', opacity:0.6 }}/>
+          <div style={{ position:'absolute', top:0, right:0, width:'15%', height:'100%', background:'#ef4444', opacity:0.6 }}/>
+          <div style={{
+            position:'absolute', top:0, height:'100%',
+            left:`${ropePos-2}%`, width:'4%',
+            background:'#fbbf24', borderRadius:3,
+            boxShadow:'0 0 8px #fbbf24',
+            transition:'left 0.4s ease'
+          }}/>
+        </div>
+
+        {/* Win condition indicators */}
+        <div style={{ position:'absolute', top:40, left:10, fontSize:11, color:'#4ade80', background:'rgba(0,0,0,0.5)', padding:'3px 8px', borderRadius:8 }}>
+          ◀ Garis Menang A
+        </div>
+        <div style={{ position:'absolute', top:40, right:10, fontSize:11, color:'#f87171', background:'rgba(0,0,0,0.5)', padding:'3px 8px', borderRadius:8 }}>
+          Garis Menang B ▶
+        </div>
+      </div>
+
+      {/* BOTTOM: Answer buttons */}
+      <div style={{ height:'26%', display:'flex', minHeight:0, borderTop:'2px solid rgba(255,255,255,0.1)' }}>
+        <TeamPanel team="A" color="green" borderColor="#22c55e" glowClass="glow-green" />
+        <div style={{ width:2, background:'rgba(255,255,255,0.1)' }}/>
+        <TeamPanel team="B" color="red" borderColor="#ef4444" glowClass="glow-red" />
+      </div>
+
+      {/* Back button */}
+      <button
+        onClick={handleBack}
+        style={{
+          position:'fixed', top:12, left:12, zIndex:100,
+          padding:'6px 14px', fontSize:12, fontWeight:700,
+          background:'rgba(0,0,0,0.6)', color:'#fff',
+          border:'1px solid rgba(255,255,255,0.2)', borderRadius:20, cursor:'pointer'
+        }}
+      >
+        ← Menu
+      </button>
+    </div>
+  );
+}
+
+function App() {
+  const [screen, setScreen] = useState('splash');
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const { playBGM, pauseBGM, resumeBGM, playFanfare } = useBGM();
+  const isFullscreen = useRef(false);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      isFullscreen.current = true;
+    } else {
+      document.exitFullscreen().catch(() => {});
+      isFullscreen.current = false;
+    }
+  };
+
+  const handleEnterTitle = () => {
+    playBGM();
+    setScreen('menu');
+  };
+
+  const handleSelectCategory = (cat) => {
+    setSelectedCategory(cat);
+    setScreen('game');
+  };
+
+  const handleBackToMenu = () => {
+    setScreen('menu');
+    resumeBGM();
+  };
+
+  return (
+    <div style={{ width:'100vw', height:'100vh', position:'relative' }}>
+      {screen === 'splash' && <SplashScreen onDone={() => setScreen('title')} />}
+      {screen === 'title' && <TitleScreen onEnter={handleEnterTitle} />}
+      {screen === 'menu' && <MainMenu onSelect={handleSelectCategory} />}
+      {screen === 'game' && selectedCategory && (
+        <GameArena
+          category={selectedCategory}
+          onBack={handleBackToMenu}
+          playFanfare={playFanfare}
+          pauseBGM={pauseBGM}
+          resumeBGM={resumeBGM}
+        />
+      )}
+
+      {/* Fullscreen button */}
+      <button
+        onClick={toggleFullscreen}
+        style={{
+          position:'fixed', top:12, right:12, zIndex:9999,
+          width:36, height:36, borderRadius:'50%',
+          background:'rgba(0,0,0,0.5)', color:'#fff',
+          border:'1px solid rgba(255,255,255,0.3)',
+          cursor:'pointer', fontSize:16, display:'flex',
+          alignItems:'center', justifyContent:'center',
+          backdropFilter:'blur(8px)',
+          transition:'all 0.2s ease'
+        }}
+        title="Toggle Fullscreen"
+        onMouseEnter={e => e.currentTarget.style.background='rgba(0,0,0,0.75)'}
+        onMouseLeave={e => e.currentTarget.style.background='rgba(0,0,0,0.5)'}
+      >
+        ⛶
+      </button>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
